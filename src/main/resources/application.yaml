@@ -11,6 +11,11 @@ spring:
       # Schema is owned by Flyway; Hibernate only checks that entities match it.
       ddl-auto: validate
     open-in-view: false
+  threads:
+    virtual:
+      # Each HTTP request runs on a cheap virtual thread (Java 21) instead of a pooled platform thread.
+      # While a request waits for the database, its virtual thread is parked and the carrier thread serves others.
+      enabled: true
 
 dispatch:
   # Queue ordering: "priority" (higher priority first, then oldest) or "fifo" (oldest first).

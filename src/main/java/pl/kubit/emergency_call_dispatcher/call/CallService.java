@@ -1,11 +1,14 @@
 package pl.kubit.emergency_call_dispatcher.call;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pl.kubit.emergency_call_dispatcher.call.event.CallAbandoned;
+import pl.kubit.emergency_call_dispatcher.call.event.CallClosed;
+import pl.kubit.emergency_call_dispatcher.call.event.CallReceived;
 import pl.kubit.emergency_call_dispatcher.common.ResourceNotFoundException;
 import pl.kubit.emergency_call_dispatcher.dispatch.DispatchService;
 
@@ -13,9 +16,9 @@ import java.time.Clock;
 
 /**
  * Use cases of an emergency call. Status rules live in {@link EmergencyCall};
- * this service loads and saves calls and triggers dispatching when needed.
+ * this service loads and saves calls, triggers dispatching when needed and publishes
+ * {@link pl.kubit.emergency_call_dispatcher.call.event.CallEvent}s about what happened.
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CallService {
@@ -23,6 +26,7 @@ public class CallService {
     private final EmergencyCallRepository callRepository;
     private final DispatchService dispatchService;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Registers a new call and immediately tries to assign it to an available dispatcher.
@@ -36,8 +40,8 @@ public class CallService {
                 command.location(),
                 command.description(),
                 clock.instant()));
-        // Only id and enums are logged: caller number and location are personal data.
-        log.info("Call {} received (type={}, priority={})", call.getId(), call.getType(), call.getPriority());
+        eventPublisher.publishEvent(
+                new CallReceived(call.getId(), call.getType(), call.getPriority(), call.getReceivedAt()));
         dispatchService.dispatchNext();
         return call;
     }
@@ -66,7 +70,8 @@ public class CallService {
     public EmergencyCall close(Long id) {
         EmergencyCall call = findById(id);
         call.close(clock.instant());
-        log.info("Call {} closed by dispatcher {}", call.getId(), call.getAssignedDispatcher().getId());
+        eventPublisher.publishEvent(
+                new CallClosed(call.getId(), call.getAssignedDispatcher().getId(), call.getClosedAt()));
         dispatchService.dispatchNext();
         return call;
     }
@@ -75,7 +80,7 @@ public class CallService {
     public EmergencyCall abandon(Long id) {
         EmergencyCall call = findById(id);
         call.abandon(clock.instant());
-        log.info("Call {} abandoned", call.getId());
+        eventPublisher.publishEvent(new CallAbandoned(call.getId(), call.getClosedAt()));
         return call;
     }
 }

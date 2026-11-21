@@ -5,11 +5,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 import pl.kubit.emergency_call_dispatcher.call.CallStatus;
 import pl.kubit.emergency_call_dispatcher.call.CallType;
 import pl.kubit.emergency_call_dispatcher.call.EmergencyCall;
 import pl.kubit.emergency_call_dispatcher.call.EmergencyCallRepository;
 import pl.kubit.emergency_call_dispatcher.call.Priority;
+import pl.kubit.emergency_call_dispatcher.call.event.CallAssigned;
 import pl.kubit.emergency_call_dispatcher.dispatcher.Dispatcher;
 import pl.kubit.emergency_call_dispatcher.dispatcher.DispatcherRepository;
 import pl.kubit.emergency_call_dispatcher.dispatcher.DispatcherStatus;
@@ -21,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -36,13 +40,16 @@ class DispatchServiceTest {
     @Mock
     private DispatcherRepository dispatcherRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private DispatchService dispatchService;
 
     @BeforeEach
     void setUp() {
         // Real strategy instead of a mock: it is a pure object and its ordering is part of what we verify.
         dispatchService = new DispatchService(callRepository, dispatcherRepository,
-                new PriorityThenFifoStrategy(), Clock.fixed(NOW, ZoneOffset.UTC));
+                new PriorityThenFifoStrategy(), Clock.fixed(NOW, ZoneOffset.UTC), eventPublisher);
     }
 
     @Test
@@ -50,6 +57,7 @@ class DispatchServiceTest {
         Dispatcher dispatcher = availableDispatcher();
         EmergencyCall oldLow = call(Priority.LOW, T0);
         EmergencyCall critical = call(Priority.CRITICAL, T0.plusSeconds(60));
+        ReflectionTestUtils.setField(critical, "id", 2L);
         when(dispatcherRepository.findFirstByStatusOrderByAvailableSinceAsc(DispatcherStatus.AVAILABLE))
                 .thenReturn(Optional.of(dispatcher));
         when(callRepository.findByStatus(CallStatus.QUEUED)).thenReturn(List.of(oldLow, critical));
@@ -62,6 +70,7 @@ class DispatchServiceTest {
         assertThat(critical.getAssignedAt()).isEqualTo(NOW);
         assertThat(dispatcher.getStatus()).isEqualTo(DispatcherStatus.BUSY);
         assertThat(oldLow.getStatus()).isEqualTo(CallStatus.QUEUED);
+        verify(eventPublisher).publishEvent(new CallAssigned(2L, 1L, NOW));
     }
 
     @Test
@@ -72,7 +81,7 @@ class DispatchServiceTest {
         Optional<EmergencyCall> assigned = dispatchService.dispatchNext();
 
         assertThat(assigned).isEmpty();
-        verifyNoInteractions(callRepository);
+        verifyNoInteractions(callRepository, eventPublisher);
     }
 
     @Test
@@ -86,6 +95,7 @@ class DispatchServiceTest {
 
         assertThat(assigned).isEmpty();
         assertThat(dispatcher.getStatus()).isEqualTo(DispatcherStatus.AVAILABLE);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -102,6 +112,7 @@ class DispatchServiceTest {
 
     private static Dispatcher availableDispatcher() {
         Dispatcher dispatcher = new Dispatcher("Anna");
+        ReflectionTestUtils.setField(dispatcher, "id", 1L);
         dispatcher.goAvailable(T0);
         return dispatcher;
     }

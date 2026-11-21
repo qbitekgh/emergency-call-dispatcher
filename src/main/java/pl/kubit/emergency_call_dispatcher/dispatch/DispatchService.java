@@ -2,11 +2,13 @@ package pl.kubit.emergency_call_dispatcher.dispatch;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.kubit.emergency_call_dispatcher.call.CallStatus;
 import pl.kubit.emergency_call_dispatcher.call.EmergencyCall;
 import pl.kubit.emergency_call_dispatcher.call.EmergencyCallRepository;
+import pl.kubit.emergency_call_dispatcher.call.event.CallAssigned;
 import pl.kubit.emergency_call_dispatcher.dispatcher.Dispatcher;
 import pl.kubit.emergency_call_dispatcher.dispatcher.DispatcherRepository;
 import pl.kubit.emergency_call_dispatcher.dispatcher.DispatcherStatus;
@@ -32,6 +34,7 @@ public class DispatchService {
     private final DispatcherRepository dispatcherRepository;
     private final QueueOrderingStrategy strategy;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Assigns the first queued call to the dispatcher who has been available the longest.
@@ -67,7 +70,7 @@ public class DispatchService {
 
     private EmergencyCall assign(EmergencyCall call, Dispatcher dispatcher) {
         call.assignTo(dispatcher, clock.instant());
-        log.info("Call {} assigned to dispatcher {}", call.getId(), dispatcher.getId());
+        eventPublisher.publishEvent(new CallAssigned(call.getId(), dispatcher.getId(), call.getAssignedAt()));
         return call;
     }
 }

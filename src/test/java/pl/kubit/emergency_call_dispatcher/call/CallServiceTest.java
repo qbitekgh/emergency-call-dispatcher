@@ -5,10 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
+import pl.kubit.emergency_call_dispatcher.call.event.CallAbandoned;
+import pl.kubit.emergency_call_dispatcher.call.event.CallClosed;
+import pl.kubit.emergency_call_dispatcher.call.event.CallReceived;
 import pl.kubit.emergency_call_dispatcher.common.IllegalStatusTransitionException;
 import pl.kubit.emergency_call_dispatcher.common.ResourceNotFoundException;
 import pl.kubit.emergency_call_dispatcher.dispatch.DispatchService;
@@ -27,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,16 +47,23 @@ class CallServiceTest {
     @Mock
     private DispatchService dispatchService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private CallService callService;
 
     @BeforeEach
     void setUp() {
-        callService = new CallService(callRepository, dispatchService, Clock.fixed(NOW, ZoneOffset.UTC));
+        callService = new CallService(callRepository, dispatchService, Clock.fixed(NOW, ZoneOffset.UTC), eventPublisher);
     }
 
     @Test
     void shouldSaveQueuedCallAndTryToDispatchIt_whenCallIsReceived() {
-        when(callRepository.save(any(EmergencyCall.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(callRepository.save(any(EmergencyCall.class))).thenAnswer(invocation -> {
+            EmergencyCall saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 1L); // the database would generate it
+            return saved;
+        });
         ReceiveCallCommand command = new ReceiveCallCommand(
                 "+48123456789", CallType.FIRE, Priority.CRITICAL, "Main St 1", "Kitchen on fire");
 
@@ -63,8 +76,9 @@ class CallServiceTest {
         assertThat(call.getPriority()).isEqualTo(Priority.CRITICAL);
         assertThat(call.getLocation()).isEqualTo("Main St 1");
         assertThat(call.getDescription()).isEqualTo("Kitchen on fire");
-        var inOrder = inOrder(callRepository, dispatchService);
+        var inOrder = inOrder(callRepository, eventPublisher, dispatchService);
         inOrder.verify(callRepository).save(call);
+        inOrder.verify(eventPublisher).publishEvent(new CallReceived(1L, CallType.FIRE, Priority.CRITICAL, NOW));
         inOrder.verify(dispatchService).dispatchNext();
     }
 
@@ -106,6 +120,7 @@ class CallServiceTest {
     @Test
     void shouldCloseCallFreeDispatcherAndDispatchNext_whenAssignedCallIsClosed() {
         Dispatcher dispatcher = new Dispatcher("Anna");
+        ReflectionTestUtils.setField(dispatcher, "id", 3L);
         dispatcher.goAvailable(T0);
         EmergencyCall call = queuedCall();
         call.assignTo(dispatcher, T0.plusSeconds(10));
@@ -117,6 +132,7 @@ class CallServiceTest {
         assertThat(closed.getClosedAt()).isEqualTo(NOW);
         assertThat(dispatcher.getStatus()).isEqualTo(DispatcherStatus.AVAILABLE);
         assertThat(dispatcher.getAvailableSince()).isEqualTo(NOW);
+        verify(eventPublisher).publishEvent(new CallClosed(1L, 3L, NOW));
         verify(dispatchService).dispatchNext();
     }
 
@@ -127,6 +143,7 @@ class CallServiceTest {
         assertThatThrownBy(() -> callService.close(1L))
                 .isInstanceOf(IllegalStatusTransitionException.class);
         verify(dispatchService, never()).dispatchNext();
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -138,10 +155,13 @@ class CallServiceTest {
 
         assertThat(abandoned.getStatus()).isEqualTo(CallStatus.ABANDONED);
         assertThat(abandoned.getClosedAt()).isEqualTo(NOW);
+        verify(eventPublisher).publishEvent(new CallAbandoned(1L, NOW));
         verify(dispatchService, never()).dispatchNext();
     }
 
     private static EmergencyCall queuedCall() {
-        return new EmergencyCall("+48123456789", CallType.MEDICAL, Priority.HIGH, "Main St 1", null, T0);
+        EmergencyCall call = new EmergencyCall("+48123456789", CallType.MEDICAL, Priority.HIGH, "Main St 1", null, T0);
+        ReflectionTestUtils.setField(call, "id", 1L);
+        return call;
     }
 }
