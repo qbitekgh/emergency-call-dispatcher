@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class EmergencyCallDispatcherApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(EmergencyCallDispatcherApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(EmergencyCallDispatcherApplication.class, args);
+    }
 
 }

@@ -11,6 +11,11 @@ spring:
       # Schema is owned by Flyway; Hibernate only checks that entities match it.
       ddl-auto: validate
     open-in-view: false
+  web:
+    # The API speaks English regardless of the server's or client's language settings,
+    # so built-in validation messages match the custom ones (otherwise e.g. a Polish JVM returns Polish messages).
+    locale: en
+    locale-resolver: fixed
   threads:
     virtual:
       # Each HTTP request runs on a cheap virtual thread (Java 21) instead of a pooled platform thread.

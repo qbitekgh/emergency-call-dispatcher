@@ -6,21 +6,8 @@ package pl.kubit.emergency_call_dispatcher.common;
  */
 public class IllegalStatusTransitionException extends RuntimeException {
 
-    private final Enum<?> from;
-    private final Enum<?> to;
-
     public IllegalStatusTransitionException(Enum<?> from, Enum<?> to) {
         super("Illegal status transition for %s: %s -> %s"
                 .formatted(from.getDeclaringClass().getSimpleName(), from, to));
-        this.from = from;
-        this.to = to;
-    }
-
-    public Enum<?> getFrom() {
-        return from;
-    }
-
-    public Enum<?> getTo() {
-        return to;
     }
 }
