@@ -2,7 +2,7 @@ spring:
   application:
     name: emergency-call-dispatcher
   datasource:
-    # Defaults match compose.yaml; override with environment variables in Docker / Kubernetes.
+    # Defaults match compose.yaml; override with environment variables in Docker.
     url: ${DB_URL:jdbc:postgresql://localhost:5432/dispatcher}
     username: ${DB_USERNAME:dispatcher}
     password: ${DB_PASSWORD:dispatcher}
@@ -11,3 +11,7 @@ spring:
       # Schema is owned by Flyway; Hibernate only checks that entities match it.
       ddl-auto: validate
     open-in-view: false
+
+dispatch:
+  # Queue ordering: "priority" (higher priority first, then oldest) or "fifo" (oldest first).
+  strategy: priority

@@ -9,6 +9,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import pl.kubit.emergency_call_dispatcher.common.IllegalStatusTransitionException;
 
 import java.time.Instant;
@@ -20,9 +23,15 @@ import java.util.Objects;
  * State changes only through domain methods; each one validates the transition
  * with {@link DispatcherStatus#canTransitionTo}. {@code availableSince} is set only while the
  * dispatcher is AVAILABLE and is used to pick the one who has been waiting the longest.
+ * <p>
+ * Lombok generates only getters. There is deliberately no {@code @Setter} (state changes only through
+ * domain methods) and no {@code @Data} (its equals/hashCode over all fields would use the mutable,
+ * database-generated id and could touch lazy relations).
  */
 @Entity
 @Table(name = "dispatcher")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // required by JPA; not for application code
 public class Dispatcher {
 
     @Id
@@ -40,10 +49,6 @@ public class Dispatcher {
 
     @Version
     private Long version;
-
-    protected Dispatcher() {
-        // required by JPA
-    }
 
     public Dispatcher(String name) {
         this.name = Objects.requireNonNull(name, "name must not be null");
@@ -70,25 +75,5 @@ public class Dispatcher {
             throw new IllegalStatusTransitionException(status, target);
         }
         this.status = target;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public DispatcherStatus getStatus() {
-        return status;
-    }
-
-    public Instant getAvailableSince() {
-        return availableSince;
-    }
-
-    public Long getVersion() {
-        return version;
     }
 }

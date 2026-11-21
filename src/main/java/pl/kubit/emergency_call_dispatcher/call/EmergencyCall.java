@@ -12,6 +12,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import pl.kubit.emergency_call_dispatcher.common.IllegalStatusTransitionException;
 import pl.kubit.emergency_call_dispatcher.dispatcher.Dispatcher;
 
@@ -27,9 +30,15 @@ import java.util.Objects;
  * <p>
  * Current time is passed in as a parameter instead of being read from a clock, so the entity stays
  * a plain object that is easy to test.
+ * <p>
+ * Lombok generates only getters. There is deliberately no {@code @Setter} (state changes only through
+ * domain methods) and no {@code @Data} (its equals/hashCode over all fields would use the mutable,
+ * database-generated id and could touch lazy relations).
  */
 @Entity
 @Table(name = "emergency_call")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // required by JPA; not for application code
 public class EmergencyCall {
 
     @Id
@@ -73,10 +82,6 @@ public class EmergencyCall {
     @Version
     private Long version;
 
-    protected EmergencyCall() {
-        // required by JPA
-    }
-
     public EmergencyCall(String callerNumber, CallType type, Priority priority,
                          String location, String description, Instant receivedAt) {
         this.callerNumber = Objects.requireNonNull(callerNumber, "callerNumber must not be null");
@@ -114,53 +119,5 @@ public class EmergencyCall {
         if (!status.canTransitionTo(target)) {
             throw new IllegalStatusTransitionException(status, target);
         }
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getCallerNumber() {
-        return callerNumber;
-    }
-
-    public CallType getType() {
-        return type;
-    }
-
-    public Priority getPriority() {
-        return priority;
-    }
-
-    public String getLocation() {
-        return location;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public CallStatus getStatus() {
-        return status;
-    }
-
-    public Instant getReceivedAt() {
-        return receivedAt;
-    }
-
-    public Instant getAssignedAt() {
-        return assignedAt;
-    }
-
-    public Instant getClosedAt() {
-        return closedAt;
-    }
-
-    public Dispatcher getAssignedDispatcher() {
-        return assignedDispatcher;
-    }
-
-    public Long getVersion() {
-        return version;
     }
 }
