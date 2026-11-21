@@ -17,6 +17,13 @@ spring:
       # While a request waits for the database, its virtual thread is parked and the carrier thread serves others.
       enabled: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only /actuator/health is published over HTTP (used to check that the app is up).
+        include: health
+
 dispatch:
   # Queue ordering: "priority" (higher priority first, then oldest) or "fifo" (oldest first).
   strategy: priority

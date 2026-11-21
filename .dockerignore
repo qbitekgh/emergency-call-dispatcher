@@ -1,0 +1,6 @@
+# Keep the build context small: only pom.xml, the Maven wrapper and src/ are needed.
+.git
+.idea
+target
+*.iml
+*.md
