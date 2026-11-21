@@ -5,6 +5,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import pl.kubit.emergency_call_dispatcher.common.IllegalStatusTransitionException;
 import pl.kubit.emergency_call_dispatcher.common.ResourceNotFoundException;
 import pl.kubit.emergency_call_dispatcher.dispatch.DispatchService;
@@ -82,19 +86,21 @@ class CallServiceTest {
     }
 
     @Test
-    void shouldReturnAllCalls_whenStatusFilterIsNull() {
-        List<EmergencyCall> calls = List.of(queuedCall());
-        when(callRepository.findAll()).thenReturn(calls);
+    void shouldReturnPageOfAllCalls_whenStatusFilterIsNull() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<EmergencyCall> page = new PageImpl<>(List.of(queuedCall()));
+        when(callRepository.findAll(pageable)).thenReturn(page);
 
-        assertThat(callService.findAll(null)).isSameAs(calls);
+        assertThat(callService.findAll(null, pageable)).isSameAs(page);
     }
 
     @Test
-    void shouldReturnCallsWithStatus_whenStatusFilterIsGiven() {
-        List<EmergencyCall> calls = List.of(queuedCall());
-        when(callRepository.findByStatus(CallStatus.QUEUED)).thenReturn(calls);
+    void shouldReturnPageOfCallsWithStatus_whenStatusFilterIsGiven() {
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<EmergencyCall> page = new PageImpl<>(List.of(queuedCall()));
+        when(callRepository.findByStatus(CallStatus.QUEUED, pageable)).thenReturn(page);
 
-        assertThat(callService.findAll(CallStatus.QUEUED)).isSameAs(calls);
+        assertThat(callService.findAll(CallStatus.QUEUED, pageable)).isSameAs(page);
     }
 
     @Test

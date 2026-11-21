@@ -2,13 +2,14 @@ package pl.kubit.emergency_call_dispatcher.call;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pl.kubit.emergency_call_dispatcher.common.ResourceNotFoundException;
 import pl.kubit.emergency_call_dispatcher.dispatch.DispatchService;
 
 import java.time.Clock;
-import java.util.List;
 
 /**
  * Use cases of an emergency call. Status rules live in {@link EmergencyCall};
@@ -48,11 +49,14 @@ public class CallService {
     }
 
     /**
-     * @param status filter; {@code null} returns calls in every status
+     * @param status   filter; {@code null} returns calls in every status
+     * @param pageable page number, page size and sort order
      */
     @Transactional(readOnly = true)
-    public List<EmergencyCall> findAll(CallStatus status) {
-        return status == null ? callRepository.findAll() : callRepository.findByStatus(status);
+    public Page<EmergencyCall> findAll(CallStatus status, Pageable pageable) {
+        return status == null
+                ? callRepository.findAll(pageable)
+                : callRepository.findByStatus(status, pageable);
     }
 
     /**
